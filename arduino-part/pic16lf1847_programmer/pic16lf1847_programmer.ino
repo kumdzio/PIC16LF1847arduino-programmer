@@ -28,9 +28,7 @@ void clk_pulse();
 //zmiana danych na rising edge, odczyt na falling
 
 void setup() {
-  // put your setup code here, to run once:
    Serial.begin(57600);
-  // make the pushbutton's pin an input:
   pinMode(CLK, OUTPUT);
   pinMode(DATA,OUTPUT);
   digitalWrite(DATA,LOW);
@@ -38,7 +36,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   byte command;
   if(Serial.available()){
     command = Serial.read();
