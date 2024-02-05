@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="fazecast.jSerialComm" type="repository">
+    <properties maven-id="com.fazecast:jSerialComm:2.10.4" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/jSerialComm-2.10.4.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/jSerialComm-2.10.4-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
