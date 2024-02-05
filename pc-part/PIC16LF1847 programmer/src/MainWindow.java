@@ -36,6 +36,10 @@ public class MainWindow {
                     } catch (HexLineNotCorrectException ex) {
                         JOptionPane.showMessageDialog(frame, "Unable to parse line in hex file. Problematic line: \"" + ex.getLine() + "\""
                                 , "Could not parse hex file", JOptionPane.ERROR_MESSAGE);
+                    } catch (WrongCheckSumException ex) {
+                        JOptionPane.showMessageDialog(frame, "Wrong checksum in line: \"" + ex.getLine() + "\"\n"
+                                + "Calculated: " + ex.getCalculated() + " Stored in line: " + ex.getSaved()
+                                , "Could not parse hex file", JOptionPane.ERROR_MESSAGE);
                     }
                     parser.printDecodedLines();
                 } else {

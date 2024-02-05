@@ -1,3 +1,4 @@
+import javax.print.attribute.standard.OrientationRequested;
 import javax.swing.*;
 import java.util.Arrays;
 
@@ -8,7 +9,7 @@ public class HexFileLine {
     private final short[] data;
     private byte checksum = 0;
     private final String originalLine;
-    public HexFileLine(String line) throws HexLineNotCorrectException {
+    public HexFileLine(String line) throws HexLineNotCorrectException, WrongCheckSumException {
         originalLine = line;
         if(line.getBytes()[0]!=':'){
             throw new HexLineNotCorrectException(line);
@@ -22,11 +23,28 @@ public class HexFileLine {
                 data[i] = (short) (convertToByte(line.substring(9+i*4,11+i*4)) + (convertToByte(line.substring(11+i*4,13+i*4))<<8));
             }
             checksum = convertToByte(line.substring(line.length()-2));
+            byte calculatedChecksum = calculateChecksum();
+            if(checksum!=calculatedChecksum){
+                throw new WrongCheckSumException(line,calculatedChecksum,checksum);
+            }
         } catch (NonHexCharException e) {
             throw new HexLineNotCorrectException(line);
         }
 
+
     }
+
+    private byte calculateChecksum() throws NonHexCharException {
+        byte result=0;
+        result+=size;
+        result+= address;
+        result+=type;
+        for(int i =0; i<size;i++){
+            result+=convertToByte(originalLine.substring(9+i*2,11+i*2));
+        }
+        return (byte)((byte)(~result)+1);
+    }
+
     private byte convertToByte(String twoHexDigits) throws NonHexCharException {
         return (byte) ((convertChar(twoHexDigits.charAt(0))<<4)+convertChar(twoHexDigits.charAt(1)));
     }

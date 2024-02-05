@@ -10,7 +10,7 @@ public class HexParser {
 
     }
 
-    public void parseFile(File file) throws FileNotFoundException, HexLineNotCorrectException {
+    public void parseFile(File file) throws FileNotFoundException, HexLineNotCorrectException, WrongCheckSumException {
         System.out.println("Trying to open file: " + file);
         Scanner myReader = new Scanner(file);
         int i = 0;
