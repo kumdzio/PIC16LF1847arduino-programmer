@@ -33,6 +33,7 @@ void setup() {
   pinMode(DATA,OUTPUT);
   digitalWrite(DATA,LOW);
   digitalWrite(CLK,LOW);
+  pinMode(LED_BUILTIN,OUTPUT);
 }
 
 void loop() {
@@ -40,6 +41,10 @@ void loop() {
   if(Serial.available()){
     command = Serial.read();
     switch (command){
+      case 'h':
+        digitalWrite(LED_BUILTIN,!digitalRead(LED_BUILTIN));
+        Serial.println("Arduino PIC16lf1847 programmer by Kumdzio");
+      break;
       case 'i':
       Serial.println("Reading ID of device:");
       int id = read_id();
@@ -64,6 +69,7 @@ void loop() {
       }else{
         Serial.println("Bulk erase command aborted.");
       }
+      break;
     }
   }
 
@@ -86,7 +92,6 @@ int read_id(){
 
 void read_all(){
   send_command(RESET_ADDRESS);
-  for(int i=0;)
 }
 
 void set_address(){
