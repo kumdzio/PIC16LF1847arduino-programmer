@@ -47,35 +47,20 @@ void loop() {
       break;
       case 'i':
       Serial.println("Reading ID of device:");
-      int id = read_id();
+      read_id();
       break;
-
-      case 'r':
-      Serial.println("Reading content of all device:");
-      read_all();
-      break;
-
-      case 'e':
-      Serial.println("Bulk erase program memory command issued. Are you sure? y/n");
-      while(!Serial.available()){
-      }
-      command=Serial.read();
-      if(command='y'){
-        Serial.println("Starting erase...");
-        send_command(RESET_ADDRESS);
-        send_command(BULK_ERASE_PROGRAM_MEMORY);
-        delay(10);
-        Serial.println("Erase done!");
-      }else{
-        Serial.println("Bulk erase command aborted.");
-      }
+      case 'p':
+      byte size = stroll(Serial.read(),NULL,16);
+      byte[2] codedAddress; 
+      Serial.readBytes(codedAddress,2);
+      int address = stroll,codedAddress
       break;
     }
   }
 
 }
 
-int read_id(){
+void read_id(){
   go_to_configuration_address();
   for(int i =0; i<10; i++){
     Serial.print("Address ");

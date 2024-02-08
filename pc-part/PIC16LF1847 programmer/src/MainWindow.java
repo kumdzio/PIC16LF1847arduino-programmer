@@ -1,9 +1,7 @@
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
@@ -18,9 +16,10 @@ import com.fazecast.jSerialComm.SerialPort;
 public class MainWindow {
     private final Dimension DEFAULT_BUTTON_SIZE = new Dimension(100, 40);
     private final JTextArea logArea = new JTextArea();
-    private final ArrayList<String> hexProgramCommands = new ArrayList<>();
+    private final ArrayList<HexLine> hexProgramCommands = new ArrayList<>();
     private final JFrame frame = new JFrame();
     private SerialPort port;
+    private final DeviceConfiguration deviceConfiguration = new DeviceConfiguration();
 
     private JComboBox<Object> comPortsComboBox;
     public MainWindow() {
@@ -69,6 +68,7 @@ public class MainWindow {
                 showErrorNoPort();
                 return;
             }
+            startProgramming();
         });
         sendButton.setSize(DEFAULT_BUTTON_SIZE);
         sendPanel.add(sendButton);
@@ -77,6 +77,90 @@ public class MainWindow {
         setUpLogArea(mainPanel);
 
         frame.setVisible(true);
+    }
+
+    private void startProgramming() {
+        if(hexProgramCommands.isEmpty()){
+            showError("Please select hex file first.");
+            return;
+        }
+        if(deviceConfiguration.DeviceID.isBlank()){
+            showError("Hex file does not contain Device ID. Proceeding without this check.");
+        }else{
+            //Device ID check here
+        }
+        JDialog progressDialog = new JDialog(frame,"Programming");
+        progressDialog.setBounds(frame.getX()+frame.getWidth()/2-150,frame.getY()+frame.getHeight()/2-10,0,0);
+        progressDialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        JProgressBar progressBar= new JProgressBar(0, hexProgramCommands.size());
+        progressBar.setPreferredSize(new Dimension(300,20));
+        progressBar.setStringPainted(true);
+        progressDialog.add(progressBar);
+        progressDialog.pack();
+        progressDialog.setVisible(true);
+        Thread programmingThread = new Thread(){
+            @Override
+            public void run() {
+                super.run();
+                frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+                for(int i=0; i<hexProgramCommands.size();i++){
+                    HexLine line = hexProgramCommands.get(i);
+                    progressBar.setValue(i+1);
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    if(!sendLine(line)){
+                        break;
+                    }
+                    if(!verifyResponse(line)){
+                        break;
+                    }
+
+                }
+                frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+                progressDialog.dispose();
+                JOptionPane.showMessageDialog(frame, "Programming complete.",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+            }
+        };
+        programmingThread.start();
+
+    }
+
+    private boolean verifyResponse(HexLine line) {
+        byte[] result = new byte[1024];
+        int numRead = port.readBytes(result, result.length);
+        log("Read " + numRead + " bytes.");
+        String response = new String(result, StandardCharsets.UTF_8);
+        if(!response.equals(line.getRest())){
+            showError("Something went wrong!\n Error received from Arduino:\n"+response);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean sendLine(HexLine line) {
+        String command="p";
+        command += line.getSize();
+        command += line.getAddress();
+        command += line.getType();
+        command += line.getRest();
+        log("Sending command: "+command);
+        int writeResult = port.writeBytes(command.getBytes(),command.length());
+        log("Send result: "+writeResult);
+        if(writeResult!=command.length()){
+            String error;
+            if(writeResult==-1){
+                error="Cannot send any data to Arduino!";
+            }else{
+                error="Tried to send "+command.length()+" bytes of data but only "+writeResult+" has been sent";
+            }
+            showError(error);
+            return false;
+        }
+        return true;
     }
 
     private JPanel getJPanelWithComPorts() {
@@ -161,8 +245,65 @@ public class MainWindow {
         try {
             Scanner myReader = new Scanner(file);
             while (myReader.hasNextLine()) {
-                hexProgramCommands.add(myReader.nextLine());
+                hexProgramCommands.add(new HexLine(myReader.nextLine()));
             }
+            //finding and fetching lines which may contain configuration
+            ArrayList<HexLine> linesWithConfiguration = new ArrayList<>();
+            for(int i=0;i<hexProgramCommands.size();i++){
+                if(!"04".equals(hexProgramCommands.get(i).getType())&&!"02".equals(hexProgramCommands.get(i).getType())){
+                    continue;
+                }
+                if(("04".equals(hexProgramCommands.get(i).getType())&&"0001F9".equals(hexProgramCommands.get(i).getRest()))
+                    || "02".equals(hexProgramCommands.get(i).getType())&&"1000EC".equals(hexProgramCommands.get(i).getRest())){
+                    int j = 1;
+                    while(Integer.parseInt(hexProgramCommands.get(i+j).getAddress(),16)<22){
+                        linesWithConfiguration.add(hexProgramCommands.get(i+j));
+                        j++;
+                    }
+                    break;
+                }
+            }
+            //extracting values from found lines
+            for(HexLine line : linesWithConfiguration){
+                for(int i=0;i<Integer.parseInt(line.getSize(),16);i++){
+                    switch (Integer.parseInt(line.getAddress(),16)+i){
+                        case 0:
+                            deviceConfiguration.UserID1=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 2:
+                            deviceConfiguration.UserID2=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 4:
+                            deviceConfiguration.UserID3=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 6:
+                            deviceConfiguration.UserID4=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 12:
+                            deviceConfiguration.DeviceID=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 14:
+                            deviceConfiguration.Configuration1=line.getRest().substring(i*2,4+i*2);
+                            break;
+                        case 16:
+                            deviceConfiguration.Configuration2=line.getRest().substring(i*2,4+i*2);
+                            break;
+                    }
+                }
+            }
+            String content = "Configuration bytes from hex file: \n";
+            content+="UserID1: 0x"+(deviceConfiguration.UserID1.isBlank()?"<MISSING!>": deviceConfiguration.UserID1)+"\n";
+            content+="UserID2: 0x"+(deviceConfiguration.UserID2.isBlank()?"<MISSING!>": deviceConfiguration.UserID2)+"\n";
+            content+="UserID3: 0x"+(deviceConfiguration.UserID3.isBlank()?"<MISSING!>": deviceConfiguration.UserID3)+"\n";
+            content+="UserID4: 0x"+(deviceConfiguration.UserID4.isBlank()?"<MISSING!>": deviceConfiguration.UserID4)+"\n";
+            content+="DeviceID: 0x"+(deviceConfiguration.DeviceID.isBlank()?"<MISSING!>": deviceConfiguration.DeviceID)+"\n";
+            content+="Configuration1: 0x"+(deviceConfiguration.Configuration1.isBlank()?"<MISSING!>": deviceConfiguration.Configuration1)+"\n";
+            content+="Configuration2: 0x"+(deviceConfiguration.Configuration2.isBlank()?"<MISSING!>": deviceConfiguration.Configuration2)+"\n";
+            if(!deviceConfiguration.isComplete()){
+                content+= "\n WARNING: hex file does not contain full configuration or target device ID.\nIt may lead to unstable or not working device.";
+            }
+            JOptionPane.showMessageDialog(frame, content,
+                    "Error", JOptionPane.INFORMATION_MESSAGE);
         } catch (FileNotFoundException ex) {
             hexProgramCommands.clear();
             showError("File is not existing or do not have access to it.");
