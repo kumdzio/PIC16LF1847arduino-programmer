@@ -16,6 +16,9 @@
 #define CLK  2
 #define DATA 3
 
+int currentAddressLSB=0;
+int currentAddressMSB=0;
+
 void read_id();
 void read_all();
 void set_address();
@@ -25,6 +28,8 @@ int read_program();
 void send_command(byte command);
 void clk_pulse();
 void programming();
+void waitForSerialData(int requestedBytesNumber);
+void writeError(String s);
 
 void setup() {
    Serial.begin(57600);
@@ -42,7 +47,7 @@ void loop() {
     switch (command){
       case 'h':
         digitalWrite(LED_BUILTIN,!digitalRead(LED_BUILTIN));
-        Serial.println("Arduino PIC16lf1847 programmer by Kumdzio");
+        Serial.print("Arduino PIC16(L)F1847 programmer by Kumdzio");
       break;
       case 'i':
       Serial.println("Reading ID of device:");
@@ -57,13 +62,45 @@ void loop() {
 }
 
 void programming(){
+  waitForSerialData(1);
   byte size = Serial.read();
+  waitForSerialData(2);
   int address = Serial.read()<<8|Serial.read();
+  waitForSerialData(1);
   byte type = Serial.read();
+  if(type == 0x01){
+    Serial.print("Done!");
+    return;
+  }
   byte data[size];
   for (byte i = 0; i<size; i++) {
+  waitForSerialData(1);
     data[i] = Serial.read();
   }
+  waitForSerialData(1);
+  byte checksum = Serial.read();
+  byte errorCode=0;
+
+  if(address>200){
+    errorCode=1;
+  }
+
+  if(errorCode==0){
+    Serial.write(data, size);
+    Serial.write(checksum);
+  }else{
+    Serial.print("Error");
+    while(!Serial.available()){
+      delay(1);
+    }
+    Serial.read();
+    switch (errorCode) {
+      case 1:
+        Serial.write(51);
+        Serial.print("Test error code! Should never happen in production.");
+    }
+  }
+
 }
 
 void read_id(){
@@ -129,4 +166,11 @@ void send_command(byte command){
 void clk_pulse(){
   digitalWrite(CLK,HIGH);
   digitalWrite(CLK,LOW);
+}
+
+
+void waitForSerialData(int requestedBytesNumber){
+  while(Serial.available()<requestedBytesNumber){
+    delayMicroseconds(10);
+  }
 }
