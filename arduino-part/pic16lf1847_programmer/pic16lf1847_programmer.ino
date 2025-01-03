@@ -1,6 +1,3 @@
-int CLK = 2;
-int DATA = 3;
-
 //commands
 #define LOAD_CONFIGURATION            0b000000
 #define LOAD_DATA_FOR_PROGRAM_MEMORY  0b000010
@@ -16,7 +13,10 @@ int DATA = 3;
 #define BULK_ERASE_DATA_MEMORY        0b001011
 #define ROW_ERASE_PROGRAM_MEMORY      0b010001
 
-int read_id();
+#define CLK  2
+#define DATA 3
+
+void read_id();
 void read_all();
 void set_address();
 void inc_address(int inc_times);
@@ -24,8 +24,7 @@ void go_to_configuration_address();
 int read_program();
 void send_command(byte command);
 void clk_pulse();
-
-//zmiana danych na rising edge, odczyt na falling
+void programming();
 
 void setup() {
    Serial.begin(57600);
@@ -50,14 +49,21 @@ void loop() {
       read_id();
       break;
       case 'p':
-      byte size = stroll(Serial.read(),NULL,16);
-      byte[2] codedAddress; 
-      Serial.readBytes(codedAddress,2);
-      int address = stroll,codedAddress
+      programming();
       break;
     }
   }
 
+}
+
+void programming(){
+  byte size = Serial.read();
+  int address = Serial.read()<<8|Serial.read();
+  byte type = Serial.read();
+  byte data[size];
+  for (byte i = 0; i<size; i++) {
+    data[i] = Serial.read();
+  }
 }
 
 void read_id(){
@@ -72,6 +78,7 @@ void read_id(){
     Serial.println(data, HEX);
     send_command(INCREMENT_ADDRESS);
   }
+  send_command(RESET_ADDRESS);
 
 }
 

@@ -16,4 +16,10 @@ public class DeviceConfiguration {
                 && !Configuration1.isBlank()
                 && !Configuration2.isBlank();
     }
+
+    public String flipBytes(String toFlip){
+        String LSB = toFlip.substring(0,2);
+        String MSB = toFlip.substring(2,4);
+        return MSB+LSB;
+    }
 }
