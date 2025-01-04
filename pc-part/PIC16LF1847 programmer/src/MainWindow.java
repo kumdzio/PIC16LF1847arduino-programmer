@@ -4,12 +4,12 @@ import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Scanner;
 
 import com.fazecast.jSerialComm.SerialPort;
@@ -94,10 +94,16 @@ public class MainWindow {
             showError("Device ID is written in HEX but id check is not implemented. Proceed with caution!");
             //Device ID check here
         }
-        if(!testArduino()){
+        if (!testArduino()) {
             showError("Cannot connect to arduino. Please ensure proper connection and select correct serial port.");
             return;
         }
+
+        if(!eraseChip()){
+            showError("Cannot erase chip. Check connections and try again.");
+            return;
+        }
+
         JDialog progressDialog = new JDialog(frame, "Programming");
         progressDialog.setBounds(frame.getX() + frame.getWidth() / 2 - 150, frame.getY() + frame.getHeight() / 2 - 10, 0, 0);
         progressDialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -107,7 +113,7 @@ public class MainWindow {
         progressDialog.add(progressBar);
         progressDialog.pack();
         progressDialog.setVisible(true);
-        boolean programmingSuccess = true;
+        
         Thread programmingThread = new Thread() {
             @Override
             public void run() {
@@ -134,10 +140,10 @@ public class MainWindow {
                     }
                     progressBar.setValue(i);
                 }
-                if(progressBar.getValue()==progressBar.getMaximum()){
+                if (progressBar.getValue() == progressBar.getMaximum()) {
                     JOptionPane.showMessageDialog(frame, "Programming complete.",
                             "Success", JOptionPane.INFORMATION_MESSAGE);
-                }else{
+                } else {
                     JOptionPane.showMessageDialog(frame, "Programming interrupted.",
                             "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -150,24 +156,31 @@ public class MainWindow {
 
     }
 
+    private boolean eraseChip() {
+        byte[] command = new byte[]{'r'};
+        WriteToPort(command, command.length, false);
+        ReadFromPort(command,1,false);
+        return command[0] == 'k';
+    }
+
     private boolean verifyResponse(HexLine line) {
-        int expectedResponseLength = line.getDataAndChecksum().length()/2;
-        if("01".equals(line.getType())){
-            if(verifyDoneResponse()){
+        int expectedResponseLength = line.getDataAndChecksum().length() / 2;
+        if ("01".equals(line.getType())) {
+            if (verifyDoneResponse()) {
                 log("Response correct\nProgramming completed without errors.");
                 return true;
-            } else{
+            } else {
                 log("Response not correct but programming completed with no errors.");
                 return false;
             }
         }
         byte[] result = new byte[expectedResponseLength];
-        if(expectedResponseLength<5){
+        if (expectedResponseLength < 5) {
             result = new byte[5];
         }
         int bytesToRead = Math.max(expectedResponseLength, 5);
         int actualResponseLength = ReadFromPort(result, bytesToRead, true);
-        if(expectedResponseLength != actualResponseLength){
+        if (expectedResponseLength != actualResponseLength) {
             handleErrorFromArduino();
             return false;
         }
@@ -175,18 +188,18 @@ public class MainWindow {
         byte[] expectedByteArray = line.parseForSend();
         boolean responseCorrect = true;
         for (int i = 0; i < expectedResponseLength; i++) {
-            if(result[i]!=expectedByteArray[i+5]){
-                responseCorrect=false;
+            if (result[i] != expectedByteArray[i + 5]) {
+                responseCorrect = false;
                 break;
             }
         }
         if (!responseCorrect) {
             String error = "Something went wrong!";
-            error+="\n Data mismatch!";
-            error+="\n Data sent to arduino : " + line.getDataAndChecksum();
-            error+="\n Response from arduino: " + Arrays.toString(result);
-            error+="\n Those should be equals!";
-            error+="\n Full command sent to arduino: " + line;
+            error += "\n Data mismatch!";
+            error += "\n Data sent to arduino : " + line.getDataAndChecksum();
+            error += "\n Response from arduino: " + Arrays.toString(result);
+            error += "\n Those should be equals!";
+            error += "\n Full command sent to arduino: " + line;
 
             showError(error);
             return false;
@@ -196,18 +209,18 @@ public class MainWindow {
     }
 
     private void handleErrorFromArduino() {
-        WriteToPort(new byte[]{'k'},1,false);
+        WriteToPort(new byte[]{'k'}, 1, false);
         byte[] result = new byte[1];
-        ReadFromPort(result,1,false);
+        ReadFromPort(result, 1, false);
         int responseLength = result[0];
         result = new byte[responseLength];
-        ReadFromPort(result, responseLength,false);
-        showError("\n Arduino responded with error: "+ new String(result,StandardCharsets.UTF_8));
+        ReadFromPort(result, responseLength, false);
+        showError("\n Arduino responded with error: " + new String(result, StandardCharsets.UTF_8));
     }
 
     private boolean verifyDoneResponse() {
         byte[] result = new byte[5];
-        ReadFromPort(result,5,true);
+        ReadFromPort(result, 5, true);
         String response = new String(result, StandardCharsets.UTF_8);
         return "Done!".equals(response);
     }
@@ -225,7 +238,7 @@ public class MainWindow {
             }
             showError(error);
             return false;
-        } else{
+        } else {
             log("Send ok.");
         }
         return true;
@@ -279,7 +292,7 @@ public class MainWindow {
         WriteToPort(new byte[]{'i'}, 1, true);
         byte[] result = new byte[400];
         int numRead = ReadFromPort(result, result.length, true);
-        if(numRead > 0){
+        if (numRead > 0) {
             String s = new String(result, StandardCharsets.UTF_8);
             log("Result of testing PIC: " + s);
         }
@@ -302,14 +315,14 @@ public class MainWindow {
         WriteToPort(new byte[]{(byte) 0x68}, 1, true);
 
         byte[] result = new byte[43];
-        int numRead = ReadFromPort(result,result.length, true);
-        if (numRead > 0){
+        int numRead = ReadFromPort(result, result.length, true);
+        if (numRead > 0) {
             String s = new String(result, StandardCharsets.UTF_8);
             log("Response from serial port: " + s);
-            if("Arduino PIC16(L)F1847 programmer by Kumdzio".equals(s)){
+            if ("Arduino PIC16(L)F1847 programmer by Kumdzio".equals(s)) {
                 log("That is correct response. Port and connection to Arduino ok.");
                 return true;
-            }else{
+            } else {
                 log("That is not correct response. Please ensure proper connection and select correct port.");
                 return false;
             }
@@ -319,7 +332,7 @@ public class MainWindow {
 
     private int ReadFromPort(byte[] result, int length, boolean logResult) {
         int numRead = port.readBytes(result, length);
-        if(!logResult) return numRead;
+        if (!logResult) return numRead;
         if (numRead <= 0) {
             log("No response! Please check port number and connection to Arduino.");
         } else {
@@ -343,8 +356,25 @@ public class MainWindow {
         hexProgramCommands.clear();
         try {
             Scanner myReader = new Scanner(file);
+            int maxAddress = 0;
+            boolean reachedEndOfProgramBlock = false;
+            Collection<String> listOfUnsupportedLineTypes = new ArrayList<>();
             while (myReader.hasNextLine()) {
-                hexProgramCommands.add(new HexLine(myReader.nextLine()));
+                HexLine line = new HexLine(myReader.nextLine());
+                hexProgramCommands.add(line);
+
+                if ("04".equals(line.getType()) && Integer.parseInt(line.getDataAndChecksum().substring(0, line.getDataAndChecksum().length() - 2)) > 0) {
+                    reachedEndOfProgramBlock = true;
+                }
+                if (!reachedEndOfProgramBlock) {
+                    int address = Integer.parseInt(line.getAddress(), 16) + Integer.parseInt(line.getSize(), 16);
+                    address = address/2; //two addresses in hex are mapped to one memory address in pic
+                    maxAddress = Math.max(maxAddress, address);
+                }
+
+                if(!"00".equals(line.getType()) && !"01".equals(line.getType()) && !"04".equals(line.getType()) && !listOfUnsupportedLineTypes.contains(line.getType())){
+                    listOfUnsupportedLineTypes.add(line.getType());
+                }
             }
             //finding and fetching lines which may contain configuration
             ArrayList<HexLine> linesWithConfiguration = new ArrayList<>();
@@ -399,10 +429,22 @@ public class MainWindow {
             content += "Configuration1: 0x" + (deviceConfiguration.Configuration1.isBlank() ? MISSING : deviceConfiguration.Configuration1) + "\n";
             content += "Configuration2: 0x" + (deviceConfiguration.Configuration2.isBlank() ? MISSING : deviceConfiguration.Configuration2) + "\n";
             if (!deviceConfiguration.isComplete()) {
-                content += "\n WARNING: hex file does not contain full configuration or target device ID.\nIt may lead to unstable or not working device.";
+                content += "\nWARNING: hex file does not contain full configuration or target device ID.\n   It may lead to unstable or not working device.";
+            }
+            if (maxAddress > 0x2000) {
+                content += "\nWARNING: hex file contains data for addresses bigger than 0x1FFF which will cause errors.\n   Proceeding will likely cause PIC16(L)F1847 to not work.";
+                content += "\n   Found max address: " + String.format("0x%04X", maxAddress);
+            }
+            if(!listOfUnsupportedLineTypes.isEmpty()){
+                content += "\nWARNING: hex file contains entries with unsupported Intel Hex types: ";
+                for(String entry : listOfUnsupportedLineTypes){
+                    content += entry + ", ";
+                }
+                content = content.substring(0, content.length()-2);
+                content += ". \n   Supported Intel Hex entry types are: 00, 01 and 04.";
             }
             JOptionPane.showMessageDialog(frame, content,
-                    "Error", JOptionPane.INFORMATION_MESSAGE);
+                    "Details of hex file", JOptionPane.INFORMATION_MESSAGE);
         } catch (FileNotFoundException ex) {
             hexProgramCommands.clear();
             showError("File is not existing or do not have access to it.");
@@ -445,14 +487,14 @@ public class MainWindow {
         }
         port = SerialPort.getCommPort(com);
         port.setBaudRate(57600);
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING|SerialPort.TIMEOUT_WRITE_BLOCKING, 100, 100);
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 100, 100);
         port.openPort();
         try {
             Thread.sleep(400);
         } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
         }
-        port.writeBytes(new byte[]{'0'},1);
+        port.writeBytes(new byte[]{'0'}, 1);
         try {
             Thread.sleep(400);
         } catch (InterruptedException ex) {
