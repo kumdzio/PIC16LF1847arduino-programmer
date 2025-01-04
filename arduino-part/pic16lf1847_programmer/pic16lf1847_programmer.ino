@@ -154,7 +154,7 @@ void programming() {
           return;
         }
       } else {
-        if (address > 0 && address < 0x3FFF) {
+        if (address >= 0 && address < 0x3FFF) {
           if (!load_data_for_program_memory(size, address, data)) {
             handle_error(ERROR_CODE_LOAD_PROGRAM_VERIFICATION_FAILED);
             return;

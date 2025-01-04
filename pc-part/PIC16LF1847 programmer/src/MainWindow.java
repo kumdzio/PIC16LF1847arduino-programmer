@@ -113,7 +113,7 @@ public class MainWindow {
         progressDialog.add(progressBar);
         progressDialog.pack();
         progressDialog.setVisible(true);
-        
+
         Thread programmingThread = new Thread() {
             @Override
             public void run() {
@@ -157,10 +157,15 @@ public class MainWindow {
     }
 
     private boolean eraseChip() {
+        log("Erasing chip.");
         byte[] command = new byte[]{'r'};
-        WriteToPort(command, command.length, false);
-        ReadFromPort(command,1,false);
-        return command[0] == 'k';
+        WriteToPort(command, command.length, true);
+        ReadFromPort(command,1,true);
+        if(command[0] == 'k') {
+            log("Erasing done.");
+            return true;
+        }
+        return false;
     }
 
     private boolean verifyResponse(HexLine line) {
@@ -213,6 +218,10 @@ public class MainWindow {
         byte[] result = new byte[1];
         ReadFromPort(result, 1, false);
         int responseLength = result[0];
+        if(responseLength < 0){
+            responseLength = -responseLength;
+            responseLength = responseLength + (128-responseLength)*2;
+        }
         result = new byte[responseLength];
         ReadFromPort(result, responseLength, false);
         showError("\n Arduino responded with error: " + new String(result, StandardCharsets.UTF_8));
@@ -487,7 +496,7 @@ public class MainWindow {
         }
         port = SerialPort.getCommPort(com);
         port.setBaudRate(57600);
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 100, 100);
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 1000, 1000);
         port.openPort();
         try {
             Thread.sleep(400);
