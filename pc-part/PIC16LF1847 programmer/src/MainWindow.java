@@ -140,7 +140,7 @@ public class MainWindow {
                     }
                     progressBar.setValue(i);
                 }
-                if (progressBar.getValue() == progressBar.getMaximum()) {
+                if (progressBar.getValue() == progressBar.getMaximum()-1) {
                     JOptionPane.showMessageDialog(frame, "Programming complete.",
                             "Success", JOptionPane.INFORMATION_MESSAGE);
                 } else {
@@ -299,7 +299,7 @@ public class MainWindow {
             return;
         }
         WriteToPort(new byte[]{'i'}, 1, true);
-        byte[] result = new byte[400];
+        byte[] result = new byte[383];
         int numRead = ReadFromPort(result, result.length, true);
         if (numRead > 0) {
             String s = new String(result, StandardCharsets.UTF_8);
@@ -496,7 +496,7 @@ public class MainWindow {
         }
         port = SerialPort.getCommPort(com);
         port.setBaudRate(57600);
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 1000, 1000);
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING | SerialPort.TIMEOUT_WRITE_BLOCKING, 10000, 10000);
         port.openPort();
         try {
             Thread.sleep(400);

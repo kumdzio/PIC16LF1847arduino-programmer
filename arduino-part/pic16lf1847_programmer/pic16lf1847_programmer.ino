@@ -39,6 +39,9 @@
 #define ERROR_CODE_LOAD_DATA_VERIFICATION_FAILED 10
 #define ERROR_CODE_LOAD_PROGRAM_VERIFICATION_FAILED 11
 
+#define DEBUG 0
+#define SIMULATE_SUCCESS false
+
 unsigned int current_address;
 bool extended_linear_address;
 
@@ -48,6 +51,8 @@ bool verify(byte lsb, byte msb);
 //Computer communication functions
 void waitForSerialData(int requestedBytesNumber);
 void handle_error(int code);
+void debug(String message);
+void debugnlf(String message);//No Line Feed
 //High level PIC functions
 void read_id();
 bool load_data_for_data_memory(byte size, int address, byte *data);
@@ -91,16 +96,18 @@ void loop() {
     switch (command) {
       case 'h':
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-        Serial.print("Arduino PIC16(L)F1847 programmer by Kumdzio");
+        Serial.print(F("Arduino PIC16(L)F1847 programmer by Kumdzio"));
         break;
       case 'i':
-        Serial.println("Reading ID of device:");
+        Serial.println(F("Reading ID of device:"));
         read_id();
         break;
       case 'p':
+        debug(F("Received programming command."));
         programming();
         break;
       case 'r':
+        debug(F("Erasing chip."));
         erase_chip();
         Serial.print('k');
         break;
@@ -112,39 +119,59 @@ void loop() {
 //STRUCTURAL FUNCTIONS
 //####################
 void programming() {
+  debug(F("Provide size of command:"));
   waitForSerialData(1);
   byte size = Serial.read();
+  debugnlf(F("Received size: "));
+  debug(String(size));
 
+  debug(F("Provide address:"));
   waitForSerialData(2);
-  int address = Serial.read() << 8 | Serial.read();
+  unsigned int address = Serial.read() << 8 | Serial.read();
+  address/=2;
+  debugnlf(F("Received address: "));
+  debug(String(address));
 
+  debug(F("Provide type of command:"));
   waitForSerialData(1);
   byte type = Serial.read();
+  debugnlf(F("Received type of command: "));
+  debug(String(type));
 
-  if (type == HEX_TYPE_END_OF_FILE) {
-    Serial.print("Done!");
-    return;
-  }
-
+  debugnlf(F("Provide "));
+  debugnlf(String(size));
+  debug(F(" bytes of data now:"));
   byte data[size];
   for (byte i = 0; i < size; i++) {
     waitForSerialData(1);
     data[i] = Serial.read();
   }
-  waitForSerialData(1);
+  debug(F("Received data: "));
+  for (byte i = 0; i < size; i++) {
+    debugnlf(F("Data["));
+    debugnlf(String(i));
+    debugnlf(F("]: "));
+    debug(String(data[i]));
+  }
 
+  debug(F("Provide checksum of command:"));
+  waitForSerialData(1);
   byte checksum = Serial.read();
+  debugnlf(F("Received checksum of command: "));
+  debug(String(checksum));
 
   switch (type) {
     case HEX_TYPE_DATA:
+      debug(F("Parsing command of type DATA"));
       if (extended_linear_address) {
-        if ((address >= 0 && address + size <= 0x3) || (address >= 0x7 && address + size <= 0x8)) {
+        debug(F("We are in EXTEDNED LINEAR ADDRESS. That means we will program configuration or data of program."));
+        if ((address >= 0 && address + size/2 <= 0x4) || (address >= 0x7 && address + size/2 <= 0x9)) {
           go_to_configuration_address();
-          if (!load_data_for_program_memory(size, address + 0x8000, data)) {
+          if (!load_data_for_program_memory(size, address+0x8000, data)) {
             handle_error(ERROR_CODE_LOAD_CONFIGURATION_VERIFICATION_FAILED);
             return;
           }
-        } else if (address > 0xE000 && address < 0xE1FF) {
+        } else if (address >= 0x7000 && address + size/2 <= 0x7100) {
           if (!load_data_for_data_memory(size, address & 0x01FF, data)) {
             handle_error(ERROR_CODE_LOAD_DATA_VERIFICATION_FAILED);
             return;
@@ -154,7 +181,8 @@ void programming() {
           return;
         }
       } else {
-        if (address >= 0 && address < 0x3FFF) {
+        debug(F("Loading data into program memory"));
+        if (address >= 0 && address + size/2 <= 0x2000) {
           if (!load_data_for_program_memory(size, address, data)) {
             handle_error(ERROR_CODE_LOAD_PROGRAM_VERIFICATION_FAILED);
             return;
@@ -167,6 +195,7 @@ void programming() {
       break;
 
     case HEX_TYPE_EXTENDED_LINEAR_ADDRESS:
+      debug("Parsing command of type EXTENDED LINEAR ADDRESS");
       if (size != 2) {
         handle_error(ERROR_CODE_WRONG_SIZE_OF_DATA);
         return;
@@ -175,9 +204,12 @@ void programming() {
         handle_error(ERROR_CODE_WRONG_DATA);
         return;
       }
+      debug("All ok, extended linear address = 1");
       extended_linear_address = 1;
       break;
-
+    case HEX_TYPE_END_OF_FILE:
+      Serial.print(F("Done!"));
+      return;
     case HEX_TYPE_EXTENDED_SEGMENT_ADDRESS:
       handle_error(ERROR_CODE_02_HEX_NOT_SUPPORTED);
       return;
@@ -201,7 +233,16 @@ void programming() {
 }
 
 bool verify(byte lsb, byte msb, int read) {
-  return read == ((msb & 0X3f) << 8) | lsb;
+  debugnlf(F("Verify: writed: "));
+  debugnlf(String(((msb & 0X3f) << 8) | lsb));
+  debugnlf(" readed: ");
+  debug(String(read));
+
+  #if SIMULATE_SUCCESS
+  return true
+  #else
+  return read == (((msb & 0X3f) << 8) | lsb);
+  #endif
 }
 
 //################################
@@ -225,48 +266,61 @@ void handle_error(int code) {
       Serial.print("Test error code! Should never happen in production.");
       break;
     case ERROR_CODE_02_HEX_NOT_SUPPORTED:
-      Serial.write(57); //size of message
+      Serial.write(57);  //size of message
       Serial.print("Hex file contains entry type 0x02 which is not supported.");
       break;
     case ERROR_CODE_03_HEX_NOT_SUPPORTED:
-      Serial.write(57); //size of message
+      Serial.write(57);  //size of message
       Serial.print("Hex file contains entry type 0x03 which is not supported.");
       break;
     case ERROR_CODE_05_HEX_NOT_SUPPORTED:
-      Serial.write(57); //size of message
+      Serial.write(57);  //size of message
       Serial.print("Hex file contains entry type 0x05 which is not supported.");
       break;
     case ERROR_CODE_UNRECOGNIZED_HEX_TYPE:
-      Serial.write(79); //size of message
+      Serial.write(79);  //size of message
       Serial.print("Hex file contains wrong entry type. Only allowed Intel HEX Types are 0x00-0x05.");
       break;
     case ERROR_CODE_WRONG_SIZE_OF_DATA:
-      Serial.write(40); //size of message
+      Serial.write(40);  //size of message
       Serial.print("Received Intel Hex entry has wrong size.");
       break;
     case ERROR_CODE_WRONG_DATA:
-      Serial.write(40); //size of message
+      Serial.write(40);  //size of message
       Serial.print("Received Intel Hex entry has wrong data.");
       break;
     case ERROR_CODE_UNSUPPORTED_ADDRESS:
-      Serial.write(60); //size of message
+      Serial.write(60);  //size of message
       Serial.print("Received Intel Hex entry has address which is not supported.");
       break;
     case ERROR_CODE_LOAD_CONFIGURATION_VERIFICATION_FAILED:
-      Serial.write(54); //size of message
+      Serial.write(54);  //size of message
       Serial.print("Verification failed when writing configuration to PIC.");
       break;
     case ERROR_CODE_LOAD_DATA_VERIFICATION_FAILED:
-      Serial.write(45); //size of message
+      Serial.write(45);  //size of message
       Serial.print("Verification failed when writing data to PIC.");
       break;
     case ERROR_CODE_LOAD_PROGRAM_VERIFICATION_FAILED:
-      Serial.write(48); //size of message
+      Serial.write(48);  //size of message
       Serial.print("Verification failed when writing program to PIC.");
       break;
     default:
       Serial.write(56);
       Serial.print("Internal arduino error. Received unsupported error code.");
+  }
+}
+
+
+void debug(String message) {
+  if (DEBUG) {
+    Serial.println(message);
+  }
+}
+
+void debugnlf(String message) {
+  if (DEBUG) {
+    Serial.print(message);
   }
 }
 
@@ -290,12 +344,12 @@ void read_id() {
 }
 
 bool load_data_for_data_memory(byte size, int address, byte *data) {
-  go_to_address(address / 2);
+  go_to_address(address);
   for (byte i = 0; i < size; i += 2) {
     data_program_cycle(data[i], data[i + 1]);
-    if(verify(data[i],data[i+1],read_data())){
+    if (verify(data[i], data[i + 1], read_data())) {
       increment_address();
-    }else{
+    } else {
       return false;
     }
   }
@@ -303,12 +357,14 @@ bool load_data_for_data_memory(byte size, int address, byte *data) {
 }
 
 bool load_data_for_program_memory(byte size, int address, byte *data) {
-  go_to_address(address / 2);
+  go_to_address(address);
   for (byte i = 0; i < size; i += 2) {
+    debugnlf(F("Programming two bytes starting from: "));
+    debug(String(i));
     one_word_program_cycle(data[i], data[i + 1]);
-    if(verify(data[i],data[i+1],read_program())){
+    if (verify(data[i], data[i + 1], read_program())) {
       increment_address();
-    }else{
+    } else {
       return false;
     }
   }
@@ -322,7 +378,7 @@ void one_word_program_cycle(byte lsb, byte msb) {
   delay(10);
 }
 
-void data_program_cycle(byte lsb, byte msb){
+void data_program_cycle(byte lsb, byte msb) {
   send_command(LOAD_DATA_FOR_DATA_MEMORY);
   write_two_bytes(lsb, msb);
   send_command(BEGIN_INTERNALLY_TIMED_PROG);
@@ -330,6 +386,12 @@ void data_program_cycle(byte lsb, byte msb){
 }
 
 void go_to_address(int address) {
+  debugnlf(F("Going from address: "));
+  debugnlf(String(current_address));
+  debugnlf(F(" to address: "));
+  debug(String(address));
+  debugnlf(F("Extended Linear Address:"));
+  debug(String(extended_linear_address));
   while (current_address < address) {
     increment_address();
   }
@@ -376,6 +438,7 @@ void erase_chip() {
   delay(10);
   send_command(BULK_ERASE_DATA_MEMORY);
   delay(10);
+  reset_address();
 }
 
 void clk_pulse() {
@@ -397,6 +460,7 @@ void increment_address() {
 void reset_address() {
   send_command(RESET_ADDRESS);
   current_address = 0;
+  extended_linear_address=0;
 }
 
 void send_command(byte command) {
