@@ -1,6 +1,8 @@
 # PIC16LF1847 Arduino programmer
  Simple implementation to flash PIC16LF1847 using arduino board
 
+ Big thanks to tinfever for writing amazing custom BMS for Dyson batteries. Pictures below are taken from his repository. Im not owner nor author of those pictures. [tinfever/FU-Dyson-BMS](https://github.com/tinfever/FU-Dyson-BMS)
+
 ### Hardware
 #### Operating voltage of PIC
 Target microcontroller (PIC16LF1847) is operaing at 3.3v. Typically arduino is using 5V. That is why you need to utilize some IC to shift the voltages. The clock line is always out from arduino and in into PIC so there you can use voltage divider but data line is bi-directional so there is needed to manipulate it little more. I personally have modified my arduino uno so it is operating at 3.3v. Very good described instruction for that is [here](https://www.google.com](https://learn.adafruit.com/arduino-tips-tricks-and-techniques/3-3v-conversion "3.3v Arduino converson")
@@ -42,7 +44,9 @@ Please bear in mind that VPP voltage have to be in range 8-9V, any voltage above
 ### FAQ
 1. Can I brick my PIC?  
   There is always risk of bricking controller, but I have done many stupid mistakes and also messed up the configuration words and always I could re-program PIC and at the very end I have successfully programmed the Unofficial BMS firmware to my dyson battery and it works flawlessly.
-2. I have a question, how can I get an answer?  
+2. Can I unlock my original firmware using that programmer instead of flashing custom firmware?  
+  Yes, but i did not test it. See [here](https://github.com/kumdzio/PIC16LF1847arduino-programmer/issues/2)
+4. I have a question, how can I get an answer?  
   Raise an issue here in github.
 
 As usually and always and everywhere in open source: you are messing with your hardware at your own risk! I will not take any responsibility for damages to your computer, PIC, Arduino or body :D
