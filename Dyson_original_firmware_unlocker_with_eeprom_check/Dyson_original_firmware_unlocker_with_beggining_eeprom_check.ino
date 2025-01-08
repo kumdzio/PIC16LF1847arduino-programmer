@@ -20,12 +20,14 @@
 unsigned int current_address;
 
 bool verify(byte lsb, byte msb);
+void blink_error(int number);
 //High level PIC functions
 int read_id();
 bool load_data_for_data_memory(byte size, int address, byte *data);
 void data_program_cycle(byte lsb, byte msb);
 void go_to_address(int address);
 bool read_and_verify_id();
+bool check_known_eeprom();
 //Low level PIC functions
 void go_to_configuration_address();
 void write_two_bytes(byte lsb, byte msb);
@@ -60,6 +62,11 @@ void loop() {
   if (read_and_verify_id()) {
     Serial.println(F("Attempting fix."));
     reset_address();
+    if (!check_known_eeprom()) {
+      Serial.println(F("Beggining of EEPROM is different than expected."));
+      blink_error(10);
+      return;
+    }
     byte data[4];
     data[0] = 0;
     data[1] = 0;
@@ -70,23 +77,7 @@ void loop() {
       delay(5000);
     } else {
       Serial.println(F("Verification of written fix failed."));
-      delay(300);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(300);
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(300);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(300);
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(300);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(300);
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(300);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(300);
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(300);
+      blink_error(5);
     }
     reset_address();
   }
@@ -94,10 +85,29 @@ void loop() {
   delay(1000);
 }
 
+void blink_error(int number) {
+  for (int i = 0; i < number; i++) {
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(300);
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(300);
+  }
+}
+
+bool check_known_eeprom(){
+  int expected[6] = {0x50, 0x53, 0x31, 0x20, 0x56, 0x31};
+  for(int i=0;i<6;i++){
+    if(expected[i]!=read_data()){
+      return false;
+    }
+    increment_address();
+  }
+  return true;
+}
 
 bool read_and_verify_id() {
   int id = read_id();
-  if((id&0x3FE0)==0x14A0){
+  if ((id & 0x3FE0) == 0x14A0) {
     Serial.println("Detected PIC18LF1847!");
     return true;
   }
