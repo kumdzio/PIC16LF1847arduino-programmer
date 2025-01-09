@@ -1,3 +1,6 @@
+//IMPORTANT: Use a 3.3V Arduino board!
+//If the built-in LED goes dark, the fix was applied successfully.
+
 //PIC 16LF1847 commands
 #define LOAD_CONFIGURATION 0b000000
 #define LOAD_DATA_FOR_PROGRAM_MEMORY 0b000010
@@ -14,8 +17,8 @@
 #define ROW_ERASE_PROGRAM_MEMORY 0b010001
 
 //Pinout
-#define CLK 2
-#define DATA 3
+#define CLK D2
+#define DATA D3
 
 unsigned int current_address;
 
@@ -46,42 +49,48 @@ int read_data();
 //ARDUINO FUNCTIONS
 //#################
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(115200);
   pinMode(CLK, OUTPUT);
   pinMode(DATA, OUTPUT);
   digitalWrite(DATA, LOW);
   digitalWrite(CLK, LOW);
   pinMode(LED_BUILTIN, OUTPUT);
   current_address = 0;
-  Serial.println(F("Dyson Battery original firmware unlocker by Kumdzio"));
+    Serial.println(F("Dyson Battery original firmware unlocker by Kumdzio"));
+  
+  while (true) {
+    Serial.println(F("Checking if PIC16LF1847 is detected."));
+    digitalWrite(LED_BUILTIN, HIGH);
+    if (read_and_verify_id()) {
+      reset_address();
+      if (!check_known_eeprom()) {
+        Serial.println(F("Beggining of EEPROM is different than expected."));
+        blink_error(10);
+        return;
+      } else {
+        Serial.println(F("Beggining of EEPROM is as expected."));
+      }
+      Serial.println(F("Attempting fix."));
+      byte data[4];
+      data[0] = 0;
+      data[1] = 0;
+      data[2] = 0x7F;
+      data[3] = 0;
+      if (load_data_for_data_memory(4, 0x1E, data)) {
+        Serial.println(F("Fix applied successfully."));
+        return;
+      } else {
+        Serial.println(F("Verification of written fix failed."));
+        blink_error(5);
+      }
+      reset_address();
+    }
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(1000);
+  }
 }
 
 void loop() {
-  Serial.println(F("Checking if PIC16LF1847 is detected."));
-  digitalWrite(LED_BUILTIN, HIGH);
-  if (read_and_verify_id()) {
-    Serial.println(F("Attempting fix."));
-    reset_address();
-    if (!check_known_eeprom()) {
-      Serial.println(F("Beggining of EEPROM is different than expected."));
-      blink_error(10);
-      return;
-    }
-    byte data[4];
-    data[0] = 0;
-    data[1] = 0;
-    data[2] = 0x7F;
-    data[3] = 0;
-    if (load_data_for_data_memory(4, 0x1E, data)) {
-      Serial.println(F("Fix applied successfully."));
-      delay(5000);
-    } else {
-      Serial.println(F("Verification of written fix failed."));
-      blink_error(5);
-    }
-    reset_address();
-  }
-  digitalWrite(LED_BUILTIN, LOW);
   delay(1000);
 }
 
@@ -110,9 +119,12 @@ bool read_and_verify_id() {
   if ((id & 0x3FE0) == 0x14A0) {
     Serial.println("Detected PIC18LF1847!");
     return true;
+  } else if (id == 0x3FFF) {
+    Serial.println("Please connect 8-9V VPP now");
+  } else {
+    Serial.print("Read ID is not correct. Should be 0x14A0 and is: 0x");
+    Serial.println(id, HEX);
   }
-  Serial.print("Readen ID is not correct. Should be 0x14A0 and is: 0x");
-  Serial.println(id, HEX);
   return false;
 }
 
