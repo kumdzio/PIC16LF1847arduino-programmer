@@ -45,7 +45,7 @@ Please bear in mind that VPP voltage have to be in range 8-9V, any voltage above
 1. Can I brick my PIC?  
   There is always risk of bricking controller, but I have done many stupid mistakes and also messed up the configuration words and always I could re-program PIC and at the very end I have successfully programmed the Unofficial BMS firmware to my dyson battery and it works flawlessly.
 2. Can I unlock my original firmware using that programmer instead of flashing custom firmware?  
-  Yes, but i did not test it. See [here](https://github.com/kumdzio/PIC16LF1847arduino-programmer/issues/2)
+  Yes, it has been tested by [probonopd](https://github.com/probonopd). See [here](https://github.com/kumdzio/PIC16LF1847arduino-programmer/issues/2)
 4. I have a question, how can I get an answer?  
   Raise an issue here in github.
 
