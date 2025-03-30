@@ -5,7 +5,7 @@
 
 ### Hardware
 #### Operating voltage of PIC
-Target microcontroller (PIC16LF1847) is operaing at 3.3v. Typically arduino is using 5V. That is why you need to utilize some IC to shift the voltages. The clock line is always out from arduino and in into PIC so there you can use voltage divider but data line is bi-directional so there is needed to manipulate it little more. I personally have modified my arduino uno so it is operating at 3.3v. Very good described instruction for that is [here](https://www.google.com](https://learn.adafruit.com/arduino-tips-tricks-and-techniques/3-3v-conversion "3.3v Arduino converson")
+Target microcontroller (PIC16LF1847) is operaing at 3.3v. Typically arduino is using 5V. That is why you need to utilize some IC to shift the voltages. The clock line is always out from arduino and in into PIC so there you can use voltage divider but data line is bi-directional so there is needed to manipulate it little more. I personally have modified my arduino uno so it is operating at 3.3v. Very good described instruction for that is [here](https://learn.adafruit.com/arduino-tips-tricks-and-techniques/3-3v-conversion)
 #### Circuits isolation
 It is recommended to isolate programmer from battery circuit. I did not do any intense research in that manner but for safety i have utilized 220ohm resistors at clock and data lines.
 #### Required high voltage for programming
